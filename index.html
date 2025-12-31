@@ -5,7 +5,7 @@
 <title>Easy Earn</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Telegram WebApp -->
+<!-- Telegram -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <!-- Firebase -->
@@ -116,22 +116,21 @@ firebase.initializeApp({
   projectId: "post-c7e41",
   appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
 });
-const db = firebase.database();
 
-/* ================= REFS ================= */
+const db = firebase.database();
 const adminRef = db.ref("adminControl");
 const userRef  = db.ref("users/" + user.id);
 
 let ADMIN = {};
 
-/* ================= UI BASIC ================= */
+/* ================= USER UI ================= */
 name.innerText = user.first_name || "User";
 username.innerText = user.username ? "@"+user.username : "No username";
 uid.innerText = "ID: " + user.id;
 if(user.photo_url) photo.src = user.photo_url;
 
 /* ================= LOAD ADMIN ================= */
-adminRef.once("value", snap=>{
+adminRef.once("value").then(snap=>{
   if(!snap.exists()) return;
 
   ADMIN = snap.val();
@@ -148,13 +147,13 @@ adminRef.once("value", snap=>{
 
 /* ================= LOAD USER ================= */
 function loadUser(){
-  userRef.once("value", snap=>{
+  userRef.once("value").then(snap=>{
     if(!snap.exists()){
       userRef.set({
-        balance:0,
-        dailyDone:0,
-        hourlyDone:0,
-        lastHour:new Date().getHours()
+        balance: 0,
+        dailyDone: 0,
+        hourlyDone: 0,
+        lastHour: new Date().getHours()
       });
       updateUI(0,0,0);
     }else{
@@ -165,36 +164,51 @@ function loadUser(){
 }
 
 /* ================= UPDATE UI ================= */
-function updateUI(b,d,h){
-  balance.innerText = b;
-  daily.innerText  = d + "/" + ADMIN.dailyLimit;
-  hourly.innerText = h + "/" + ADMIN.hourlyLimit;
-  dailyBar.style.width  = (d/ADMIN.dailyLimit)*100 + "%";
-  hourlyBar.style.width = (h/ADMIN.hourlyLimit)*100 + "%";
+function updateUI(balanceVal,dailyVal,hourlyVal){
+  balance.innerText = balanceVal;
+  daily.innerText  = dailyVal + "/" + ADMIN.dailyLimit;
+  hourly.innerText = hourlyVal + "/" + ADMIN.hourlyLimit;
+
+  dailyBar.style.width  = (dailyVal / ADMIN.dailyLimit) * 100 + "%";
+  hourlyBar.style.width = (hourlyVal / ADMIN.hourlyLimit) * 100 + "%";
 }
 
 /* ================= WATCH AD ================= */
-watchBtn.onclick = ()=>{
-  userRef.once("value", snap=>{
-    let d = snap.val();
-    let hour = new Date().getHours();
+watchBtn.onclick = () => {
+  userRef.once("value").then(snap => {
 
-    if(d.lastHour !== hour){
-      d.hourlyDone = 0;
-      d.lastHour = hour;
+    if(!snap.exists()){
+      tg.showAlert("User data missing");
+      return;
     }
 
+    let d = snap.val();
+    let currentHour = new Date().getHours();
+
+    // Reset hourly if hour changed
+    if(d.lastHour !== currentHour){
+      d.hourlyDone = 0;
+      d.lastHour = currentHour;
+
+      userRef.update({
+        hourlyDone: 0,
+        lastHour: currentHour
+      });
+    }
+
+    // ❌ Daily limit
     if(d.dailyDone >= ADMIN.dailyLimit){
       tg.showAlert("❌ Daily limit finished");
       return;
     }
 
+    // ❌ Hourly limit
     if(d.hourlyDone >= ADMIN.hourlyLimit){
       tg.showAlert("❌ Hourly limit finished");
       return;
     }
 
-    // ✅ redirect only
+    // ✅ All OK
     location.href = "video.html";
   });
 };
