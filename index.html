@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Easy Earn</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Telegram WebApp -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{background:#0b0f1a;color:#fff}
+.app{max-width:480px;margin:auto;padding:15px;padding-bottom:90px}
+
+.user-box{
+  background:#12172a;border:1px solid #2b335a;border-radius:16px;
+  padding:14px;display:flex;gap:12px;align-items:center
+}
+.avatar{width:52px;height:52px;border-radius:50%;overflow:hidden;background:#2b335a}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.user-info{flex:1}
+.user-info h3{font-size:16px}
+.user-info small{font-size:12px;opacity:.7;display:block}
+.balance{text-align:right}
+.balance h2{color:#00ff9d;font-size:18px}
+
+.card{
+  background:#12172a;border:1px solid #2b335a;
+  border-radius:16px;padding:15px;margin-top:15px
+}
+.reward{float:right;color:gold}
+
+.progress{margin-top:10px;font-size:13px}
+.bar{height:8px;background:#1c2340;border-radius:10px;overflow:hidden;margin-top:4px}
+.bar div{height:100%;width:0%;background:linear-gradient(90deg,#6a5cff,#2ec7ff)}
+
+.btn{
+  width:100%;margin-top:15px;padding:14px;
+  border:none;border-radius:14px;
+  font-size:16px;color:#fff;
+  background:linear-gradient(135deg,#6a5cff,#2ec7ff)
+}
+
+.nav{
+  position:fixed;bottom:0;width:100%;
+  background:#12172a;border-top:1px solid #2b335a;
+  display:flex;justify-content:space-around;padding:12px 0
+}
+.nav span{opacity:.6}
+.nav .active{opacity:1;color:#6a5cff}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- USER INFO -->
+<div class="user-box">
+  <div class="avatar"><img id="photo"></div>
+  <div class="user-info">
+    <h3 id="name">User</h3>
+    <small id="username">@username</small>
+    <small id="uid">ID: --</small>
+  </div>
+  <div class="balance">
+    <small>Balance</small>
+    <h2><span id="balance">0</span> SHIB</h2>
+  </div>
+</div>
+
+<!-- WATCH ADS -->
+<div class="card">
+  <h3>⚡ Watch Ads <span class="reward" id="rewardTxt">+0 SHIB</span></h3>
+
+  <div class="progress">
+    Daily: <b id="daily">0/0</b>
+    <div class="bar"><div id="dailyBar"></div></div>
+  </div>
+
+  <div class="progress">
+    Hourly: <b id="hourly">0/0</b>
+    <div class="bar"><div id="hourlyBar"></div></div>
+  </div>
+
+  <button class="btn" id="watchBtn">▶ Watch Ad</button>
+</div>
+
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <span class="active">Home</span>
+  <span onclick="location.href='tasks.html'">Tasks</span>
+  <span onclick="location.href='invite.html'">Invite</span>
+  <span onclick="location.href='withdraw.html'">Withdraw</span>
+</div>
+
+<script>
+/* ================= TELEGRAM ================= */
+const tg = Telegram.WebApp;
+tg.ready(); tg.expand();
+
+const user = tg.initDataUnsafe.user;
+if(!user){ tg.close(); }
+
+/* ================= FIREBASE ================= */
+firebase.initializeApp({
+  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
+  databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
+  projectId: "post-c7e41",
+  appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
+});
+const db = firebase.database();
+
+/* ================= REFS ================= */
+const adminRef = db.ref("adminControl");
+const userRef  = db.ref("users/" + user.id);
+
+let ADMIN = {};
+
+/* ================= UI BASIC ================= */
+name.innerText = user.first_name || "User";
+username.innerText = user.username ? "@"+user.username : "No username";
+uid.innerText = "ID: " + user.id;
+if(user.photo_url) photo.src = user.photo_url;
+
+/* ================= LOAD ADMIN ================= */
+adminRef.once("value", snap=>{
+  if(!snap.exists()) return;
+
+  ADMIN = snap.val();
+
+  if(!ADMIN.system){
+    tg.showAlert("🚧 System Under Maintenance");
+    tg.close();
+    return;
+  }
+
+  rewardTxt.innerText = "+" + ADMIN.rewardPerAd + " SHIB";
+  loadUser();
+});
+
+/* ================= LOAD USER ================= */
+function loadUser(){
+  userRef.once("value", snap=>{
+    if(!snap.exists()){
+      userRef.set({
+        balance:0,
+        dailyDone:0,
+        hourlyDone:0,
+        lastHour:new Date().getHours()
+      });
+      updateUI(0,0,0);
+    }else{
+      const d = snap.val();
+      updateUI(d.balance||0, d.dailyDone||0, d.hourlyDone||0);
+    }
+  });
+}
+
+/* ================= UPDATE UI ================= */
+function updateUI(b,d,h){
+  balance.innerText = b;
+  daily.innerText  = d + "/" + ADMIN.dailyLimit;
+  hourly.innerText = h + "/" + ADMIN.hourlyLimit;
+  dailyBar.style.width  = (d/ADMIN.dailyLimit)*100 + "%";
+  hourlyBar.style.width = (h/ADMIN.hourlyLimit)*100 + "%";
+}
+
+/* ================= WATCH AD ================= */
+watchBtn.onclick = ()=>{
+  userRef.once("value", snap=>{
+    let d = snap.val();
+    let hour = new Date().getHours();
+
+    if(d.lastHour !== hour){
+      d.hourlyDone = 0;
+      d.lastHour = hour;
+    }
+
+    if(d.dailyDone >= ADMIN.dailyLimit){
+      tg.showAlert("❌ Daily limit finished");
+      return;
+    }
+
+    if(d.hourlyDone >= ADMIN.hourlyLimit){
+      tg.showAlert("❌ Hourly limit finished");
+      return;
+    }
+
+    // ✅ redirect only
+    location.href = "video.html";
+  });
+};
+</script>
+
+</body>
+</html>

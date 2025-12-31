@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Invite & Earn</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Telegram -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+/* ================= TELEGRAM ================= */
+const tg = Telegram.WebApp;
+tg.ready(); tg.expand();
+
+const user = tg.initDataUnsafe.user;
+if(!user){ tg.close(); }
+const uid = String(user.id);
+
+/* ================= FIREBASE ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
+  projectId: "post-c7e41",
+  appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ================= BOT ================= */
+const BOT_USERNAME = "@ent_incbot";
+
+/* ================= INVITE LINK ================= */
+const inviteLink = `https://t.me/${BOT_USERNAME}?start=${uid}`;
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("inviteLink").innerText = inviteLink;
+});
+
+/* ================= COPY & SHARE ================= */
+window.copyLink = ()=>{
+  navigator.clipboard.writeText(inviteLink)
+  .then(()=>tg.showAlert("✅ Invite link copied"));
+};
+window.shareTG = ()=>{
+  tg.openTelegramLink(
+    `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=Join and earn SHIB!`
+  );
+};
+
+/* ================= LOAD DATA ================= */
+async function loadData(){
+  const adminSnap = await getDoc(doc(db,"admin","invite"));
+  const reward = adminSnap.exists() ? adminSnap.data().reward || 0 : 0;
+  document.getElementById("rewardPerInvite").innerText = reward;
+
+  const userRef = doc(db,"users",uid);
+  const userSnap = await getDoc(userRef);
+
+  if(!userSnap.exists()){
+    await setDoc(userRef,{
+      balance:0,
+      totalInvites:0,
+      inviteEarn:0,
+      createdAt:Date.now()
+    });
+    updateStats(0,0);
+  }else{
+    const d = userSnap.data();
+    updateStats(d.totalInvites||0, d.inviteEarn||0);
+  }
+}
+function updateStats(i,e){
+  totalInvites.innerText = i;
+  inviteEarn.innerText = e;
+}
+loadData();
+</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{background:#0b0f1a;color:#fff}
+.app{max-width:480px;margin:auto;padding:16px;padding-bottom:90px}
+
+.card{
+  background:#12172a;border:1px solid #2b335a;
+  border-radius:16px;padding:16px;margin-bottom:14px
+}
+.invite-box{
+  background:#0b1022;border:1px dashed #6a5cff;
+  padding:12px;border-radius:12px;
+  word-break:break-all;font-size:13px;margin:10px 0
+}
+.btn{
+  width:100%;margin-top:10px;padding:14px;
+  border:none;border-radius:14px;
+  background:linear-gradient(135deg,#6a5cff,#2ec7ff);
+  color:#fff;font-size:15px
+}
+.stats{display:flex;justify-content:space-between;margin-top:12px}
+.stat{
+  width:48%;background:#0b1022;
+  border-radius:12px;padding:14px;text-align:center
+}
+.stat h3{color:#00ff9d}
+.note{font-size:13px;opacity:.7;text-align:center}
+
+/* NAV BAR */
+.nav{
+  position:fixed;bottom:0;width:100%;
+  background:#12172a;border-top:1px solid #2b335a;
+  display:flex;justify-content:space-around;
+  padding:12px 0
+}
+.nav span{opacity:.6}
+.nav .active{opacity:1;color:#6a5cff}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<div class="card">
+  <h2>🎁 Invite & Earn</h2>
+  <p class="note">Invite friends and earn rewards</p>
+
+  <div class="invite-box" id="inviteLink">Loading...</div>
+
+  <button class="btn" onclick="copyLink()">📋 Copy Link</button>
+  <button class="btn" onclick="shareTG()">🚀 Share on Telegram</button>
+
+  <p class="note">
+    Reward per invite:
+    <b><span id="rewardPerInvite">0</span> SHIB</b>
+  </p>
+</div>
+
+<div class="card">
+  <h2>📊 Your Stats</h2>
+  <div class="stats">
+    <div class="stat">
+      <h3 id="totalInvites">0</h3>
+      <small>Total Invites</small>
+    </div>
+    <div class="stat">
+      <h3 id="inviteEarn">0</h3>
+      <small>Earned</small>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="nav">
+  <span onclick="location.href='index.html'">Home</span>
+  <span onclick="location.href='tasks.html'">Tasks</span>
+  <span class="active">Invite</span>
+  <span onclick="location.href='withdraw.html'">Withdraw</span>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>বিজ্ঞাপন দেখুন</title>
+
+<!-- Telegram -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<style>
+html,body{
+  margin:0;padding:0;height:100%;width:100%;
+  font-family:Arial;
+  background:#f5f5f5;
+  display:flex;flex-direction:column;
+}
+h3{
+  background:#feca2a;
+  text-align:center;
+  padding:6px;
+  margin:0;
+}
+#iframe-container{flex:1;position:relative}
+iframe{width:100%;height:100%;border:none}
+#controls{
+  position:absolute;
+  bottom:0;
+  width:100%;
+  background:#fff;
+  padding:10px;
+  text-align:center;
+}
+#timer{font-size:22px;color:#008000;margin-bottom:6px}
+button{
+  padding:10px 20px;
+  font-size:18px;
+  border:none;
+  border-radius:8px;
+  background:#0088cc;
+  color:#fff;
+}
+button:disabled{background:gray}
+</style>
+</head>
+
+<body>
+
+<div id="iframe-container">
+  <h3>সব Ads দেখুন এবং 200 Token পান</h3>
+
+  <iframe id="adFrame"></iframe>
+
+  <div id="controls">
+    <div id="timer">15</div>
+    <button id="doneBtn" disabled>✅ Done</button>
+  </div>
+</div>
+
+<script>
+/* ===== Telegram ===== */
+const tg = window.Telegram?.WebApp;
+if(tg) tg.ready();
+const userId = tg?.initDataUnsafe?.user?.id || "guest";
+
+/* ===== Firebase ===== */
+firebase.initializeApp({
+  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
+  databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
+  projectId: "post-c7e41",
+  appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
+});
+const db = firebase.database();
+
+/* ===== ADS LIST (Adsgram) ===== */
+const ads = [
+  "https://t.me/adsgram_ai?start=AD1",
+  "https://t.me/adsgram_ai?start=AD2",
+  "https://t.me/adsgram_ai?start=AD3"
+];
+
+/* ===== CONFIG ===== */
+const secondsPerAd = 15;
+const totalReward = 200;
+
+let currentAd = 0;
+let timeLeft = secondsPerAd;
+let interval;
+
+const adFrame = document.getElementById("adFrame");
+const timerEl = document.getElementById("timer");
+const doneBtn = document.getElementById("doneBtn");
+
+/* ===== START ADS ===== */
+function loadAd(){
+  if(currentAd >= ads.length){
+    timerEl.innerText = "✅ সব Ads শেষ";
+    doneBtn.disabled = false;
+    return;
+  }
+
+  adFrame.src = ads[currentAd];
+  timeLeft = secondsPerAd;
+  timerEl.innerText = timeLeft;
+
+  interval = setInterval(()=>{
+    timeLeft--;
+    timerEl.innerText = timeLeft;
+    if(timeLeft <= 0){
+      clearInterval(interval);
+      currentAd++;
+      loadAd();
+    }
+  },1000);
+}
+
+loadAd();
+
+/* ===== DONE BUTTON ===== */
+doneBtn.onclick = async ()=>{
+  const userRef = db.ref("users/"+userId+"/balance");
+
+  try{
+    const snap = await userRef.get();
+    const balance = snap.exists() ? snap.val() : 0;
+    const newBal = balance + totalReward;
+
+    await userRef.set(newBal);
+
+    alert("🎉 200 Token যোগ হয়েছে!\nNew Balance: "+newBal);
+
+    if(tg){
+      tg.sendData("ads_verified");
+      tg.close();
+    }
+  }catch(e){
+    alert("❌ Token add failed");
+  }
+};
+
+/* ===== ANTI CHEAT ===== */
+window.addEventListener("beforeunload", e=>{
+  e.preventDefault();
+  e.returnValue = "Ads শেষ না করলে token পাবেন না!";
+});
+</script>
+
+</body>
+</html>
