@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Withdraw History</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{background:#0b0f1a;color:#fff}
+.app{max-width:480px;margin:auto;padding:15px;padding-bottom:90px}
+
+.card{
+  background:#12172a;
+  border:1px solid #2b335a;
+  border-radius:16px;
+  padding:12px;
+  margin-bottom:10px
+}
+.status{
+  font-size:12px;
+  padding:4px 10px;
+  border-radius:20px;
+  display:inline-block
+}
+.pending{background:#ffc10722;color:#ffc107}
+.approved{background:#00ff8822;color:#00ff88}
+.rejected{background:#ff4d4d22;color:#ff4d4d}
+
+.small{font-size:12px;opacity:.7}
+h2{text-align:center;margin-bottom:12px}
+
+/* NAV */
+.nav{
+  position:fixed;bottom:0;left:0;width:100%;
+  background:#12172a;border-top:1px solid #2b335a;
+  display:flex;justify-content:space-around;padding:12px 0
+}
+.nav span{opacity:.6}
+.nav .active{opacity:1;color:#6a5cff}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+  <h2>📜 Withdraw History</h2>
+  <div id="list">Loading...</div>
+</div>
+
+<!-- NAV BAR -->
+<div class="nav">
+  <span onclick="location.href='index.html'">Home</span>
+  <span onclick="location.href='tasks.html'">Tasks</span>
+  <span onclick="location.href='invite.html'">Invite</span>
+  <span onclick="location.href='withdraw.html'">Withdraw</span>
+</div>
+
+<script>
+/* ===== TELEGRAM ===== */
+const tg = Telegram.WebApp;
+tg.ready(); tg.expand();
+const user = tg.initDataUnsafe?.user;
+if(!user) tg.close();
+const uid = String(user.id);
+
+/* ===== FIREBASE ===== */
+firebase.initializeApp({
+  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
+  databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
+  projectId: "post-c7e41",
+  appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
+});
+
+const db = firebase.database();
+const list = document.getElementById("list");
+
+/* ===== LOAD HISTORY ===== */
+db.ref("withdraw_requests")
+  .orderByChild("userId")
+  .equalTo(uid)
+  .on("value", snap => {
+
+    if(!snap.exists()){
+      list.innerHTML = "<p class='small'>No withdraw history found</p>";
+      return;
+    }
+
+    let html = "";
+    const data = [];
+
+    snap.forEach(s => {
+      data.push(s.val());
+    });
+
+    data.reverse(); // latest first
+
+    data.forEach(w => {
+      let cls = "pending";
+      if(w.status === "approved") cls = "approved";
+      if(w.status === "rejected") cls = "rejected";
+
+      html += `
+        <div class="card">
+          <b>${w.method}</b>
+          <span class="status ${cls}">${w.status}</span><br><br>
+
+          💰 Coins: <b>${w.coins}</b><br>
+          💵 Amount: ৳${w.taka}<br>
+          📱 Account: ${w.account}<br>
+          <div class="small">🕒 ${new Date(w.time).toLocaleString()}</div>
+        </div>
+      `;
+    });
+
+    list.innerHTML = html;
+  });
+</script>
+
+</body>
+</html>
