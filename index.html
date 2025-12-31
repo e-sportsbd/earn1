@@ -107,7 +107,7 @@ const tg = Telegram.WebApp;
 tg.ready(); tg.expand();
 
 const user = tg.initDataUnsafe.user;
-if(!user){ tg.close(); }
+if(!user) tg.close();
 
 /* ================= FIREBASE ================= */
 firebase.initializeApp({
@@ -132,6 +132,7 @@ if(user.photo_url) photo.src = user.photo_url;
 /* ================= LOAD ADMIN ================= */
 adminRef.once("value").then(snap=>{
   if(!snap.exists()) return;
+
   ADMIN = snap.val();
 
   if(!ADMIN.system){
@@ -149,67 +150,62 @@ function loadUser(){
   userRef.once("value").then(snap=>{
     if(!snap.exists()){
       userRef.set({
-        balance: 0,
-        dailyDone: 0,
-        hourlyDone: 0,
-        lastHour: new Date().getHours()
+        balance:0,
+        dailyDone:0,
+        hourlyDone:0,
+        lastHour:new Date().getHours()
       });
       updateUI(0,0,0);
     }else{
-      const d = snap.val();
-      updateUI(d.balance||0, d.dailyDone||0, d.hourlyDone||0);
+      const d=snap.val();
+      updateUI(d.balance||0,d.dailyDone||0,d.hourlyDone||0);
     }
   });
 }
 
 /* ================= UPDATE UI ================= */
 function updateUI(b,d,h){
-  balance.innerText = b;
-  daily.innerText  = d + "/" + ADMIN.dailyLimit;
-  hourly.innerText = h + "/" + ADMIN.hourlyLimit;
-  dailyBar.style.width  = (d/ADMIN.dailyLimit)*100+"%";
-  hourlyBar.style.width = (h/ADMIN.hourlyLimit)*100+"%";
+  balance.innerText=b;
+  daily.innerText=d+"/"+ADMIN.dailyLimit;
+  hourly.innerText=h+"/"+ADMIN.hourlyLimit;
+  dailyBar.style.width=(d/ADMIN.dailyLimit)*100+"%";
+  hourlyBar.style.width=(h/ADMIN.hourlyLimit)*100+"%";
 }
 
 /* ================= WATCH AD ================= */
-watchBtn.onclick = () => {
+watchBtn.onclick=()=>{
   userRef.once("value").then(snap=>{
-    const d = snap.val();
-    const h = new Date().getHours();
+    const d=snap.val();
+    const hour=new Date().getHours();
 
-    if(d.lastHour !== h){
-      userRef.update({hourlyDone:0,lastHour:h});
-      d.hourlyDone = 0;
+    if(d.lastHour!==hour){
+      userRef.update({hourlyDone:0,lastHour:hour});
+      d.hourlyDone=0;
     }
 
-    if(d.dailyDone >= ADMIN.dailyLimit)
+    if(d.dailyDone>=ADMIN.dailyLimit)
       return tg.showAlert("❌ Daily limit finished");
 
-    if(d.hourlyDone >= ADMIN.hourlyLimit)
+    if(d.hourlyDone>=ADMIN.hourlyLimit)
       return tg.showAlert("❌ Hourly limit finished");
 
-    location.href = "video.html";
+    location.href="video.html";
   });
 };
 
-/* ================= AUTO REWARD ================= */
-const p = new URLSearchParams(location.search);
-if(p.get("ads")==="done"){
-  userRef.once("value").then(s=>{
-    const d=s.val();
-    const nb=(d.balance||0)+ADMIN.rewardPerAd;
-    const nd=(d.dailyDone||0)+1;
-    const nh=(d.hourlyDone||0)+1;
-
-    userRef.update({
-      balance:nb,
-      dailyDone:nd,
-      hourlyDone:nh
-    }).then(()=>{
-      updateUI(nb,nd,nh);
-      tg.showAlert("✅ Reward Added");
-      history.replaceState({},document.title,"index.html");
-    });
+/* ================= AUTO REWARD AFTER AD ================= */
+const params=new URLSearchParams(location.search);
+if(params.get("ads")==="done"){
+  userRef.transaction(d=>{
+    if(!d) return d;
+    d.balance=(d.balance||0)+ADMIN.rewardPerAd;
+    d.dailyDone=(d.dailyDone||0)+1;
+    d.hourlyDone=(d.hourlyDone||0)+1;
+    return d;
+  }).then(()=>{
+    tg.showAlert("✅ Reward Added");
+    history.replaceState({},document.title,"index.html");
+    loadUser();
   });
 }
 </script>
