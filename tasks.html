@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tasks</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+
+body{
+  background:#0b0f1a;
+  color:#ffffff;
+  min-height:100vh;
+}
+
+/* Coming Soon Box */
+.center{
+  height:calc(100vh - 70px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.box{
+  text-align:center;
+}
+.box h1{
+  font-size:36px;
+  margin-bottom:10px;
+}
+.box p{
+  font-size:16px;
+  color:#aaa;
+}
+
+/* Bottom Nav */
+.nav{
+  position:fixed;
+  bottom:0;
+  width:100%;
+  background:#12172a;
+  border-top:1px solid #2b335a;
+  display:flex;
+  justify-content:space-around;
+  padding:12px 0
+}
+.nav span{
+  opacity:.6;
+  cursor:pointer;
+}
+.nav .active{
+  opacity:1;
+  color:#6a5cff;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Coming Soon -->
+<div class="center">
+  <div class="box">
+    <h1>🚧 Coming Soon</h1>
+    <p>Task feature will be available very soon</p>
+  </div>
+</div>
+
+<!-- Bottom Navigation -->
+<div class="nav">
+  <span onclick="location.href='index.html'">Home</span>
+  <span class="active">Tasks</span>
+  <span onclick="location.href='invite.html'">Invite</span>
+  <span onclick="location.href='withdraw.html'">Withdraw</span>
+</div>
+
+</body>
+</html>

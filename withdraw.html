@@ -5,28 +5,75 @@
 <title>Withdraw</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- Telegram -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
 body{background:#0b0f1a;color:#fff}
-.app{max-width:480px;margin:auto;padding:15px;padding-bottom:90px}
+.app{max-width:480px;margin:auto;padding:16px;padding-bottom:90px}
 
-.card{background:#12172a;border:1px solid #2b335a;border-radius:18px;padding:16px}
+.card{
+  background:#12172a;
+  border:1px solid #2b335a;
+  border-radius:18px;
+  padding:16px
+}
 h2{text-align:center;margin-bottom:10px}
-.info{background:#181f3a;padding:10px;border-radius:12px;font-size:13px;margin-bottom:12px}
-input,select,button{width:100%;padding:14px;margin-top:8px;border-radius:14px;border:none}
-input,select{background:#0f1428;color:#fff;border:1px solid #2b335a}
-button{margin-top:14px;background:linear-gradient(135deg,#6a5cff,#2ec7ff);color:#fff;font-size:16px}
-.live{background:#0f1428;border:1px dashed #2ec7ff;border-radius:12px;padding:10px;margin-top:8px;text-align:center}
 
-/* ===== NAV ===== */
+.info{
+  background:#181f3a;
+  padding:12px;
+  border-radius:12px;
+  font-size:13px;
+  margin-bottom:12px;
+  line-height:1.6
+}
+
+input,select,button{
+  width:100%;
+  padding:14px;
+  margin-top:10px;
+  border-radius:14px;
+  border:none;
+  font-size:15px
+}
+
+input,select{
+  background:#0f1428;
+  color:#fff;
+  border:1px solid #2b335a
+}
+
+button{
+  background:linear-gradient(135deg,#6a5cff,#2ec7ff);
+  color:#fff;
+  font-size:16px
+}
+
+.live{
+  background:#0f1428;
+  border:1px dashed #2ec7ff;
+  border-radius:12px;
+  padding:10px;
+  margin-top:8px;
+  text-align:center;
+  font-size:14px
+}
+
+/* NAV */
 .nav{
-  position:fixed;bottom:0;left:0;width:100%;
-  background:#12172a;border-top:1px solid #2b335a;
-  display:flex;justify-content:space-around;padding:12px 0
+  position:fixed;
+  bottom:0;left:0;width:100%;
+  background:#12172a;
+  border-top:1px solid #2b335a;
+  display:flex;
+  justify-content:space-around;
+  padding:12px 0
 }
 .nav span{opacity:.6;font-size:14px}
 .nav .active{opacity:1;color:#6a5cff}
@@ -38,22 +85,25 @@ button{margin-top:14px;background:linear-gradient(135deg,#6a5cff,#2ec7ff);color:
 <div class="app">
   <div class="card">
     <h2>💳 Withdraw</h2>
-    <div class="info" id="rules">Loading...</div>
 
-    <input id="coins" type="number" placeholder="Enter coins" oninput="calc()">
+    <div class="info" id="rules">Loading withdraw rules...</div>
+
+    <input type="number" id="coins" placeholder="Enter coins">
     <div class="live" id="taka">💡 Enter coins</div>
 
     <select id="method">
-      <option value="">Select Method</option>
+      <option value="">Select Payment Method</option>
     </select>
 
-    <input id="account" placeholder="Account Number">
-    <button onclick="submitWithdraw()">🚀 Submit Withdraw</button>
+    <input type="text" id="account" placeholder="Enter account number">
+
+    <button id="submitBtn">🚀 Submit Withdraw</button>
   </div>
+
   <button onclick="location.href='withdraw_history.html'">📜 Withdraw History</button>
 </div>
 
-<!-- ===== NAV BAR ===== -->
+<!-- NAV -->
 <div class="nav">
   <span onclick="location.href='index.html'">Home</span>
   <span onclick="location.href='tasks.html'">Tasks</span>
@@ -65,11 +115,13 @@ button{margin-top:14px;background:linear-gradient(135deg,#6a5cff,#2ec7ff);color:
 /* ===== TELEGRAM ===== */
 const tg = Telegram.WebApp;
 tg.ready(); tg.expand();
+
 const user = tg.initDataUnsafe?.user;
 if(!user){ tg.close(); }
+
 const uid = String(user.id);
 
-/* ===== FIREBASE ===== */
+/* ===== FIREBASE INIT ===== */
 firebase.initializeApp({
   apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
   databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
@@ -78,76 +130,86 @@ firebase.initializeApp({
 });
 
 const db = firebase.database();
-const adminRef = db.ref("adminControl/withdraw");
-const userRef  = db.ref("users/" + uid);
+const adminRef    = db.ref("adminControl/withdraw");
+const userRef     = db.ref("users/" + uid);
 const withdrawRef = db.ref("withdraw_requests");
 
+/* ===== STATE ===== */
 let CONFIG = {};
-let USER = { balance: 0, totalInvites: 0 };
+let USER   = { balance: 0, totalInvites: 0 };
 
-/* ===== LOAD ADMIN ===== */
+/* ===== LOAD ADMIN CONFIG ===== */
 adminRef.once("value").then(snap=>{
   if(!snap.exists()) return showError("Withdraw system not configured");
 
   CONFIG = snap.val();
+
   if(CONFIG.withdrawEnabled === false){
-    return showError("Withdraw disabled");
+    return showError("Withdraw currently disabled");
   }
+
   loadUser();
 });
 
-/* ===== LOAD USER (NO CREATE) ===== */
+/* ===== LOAD USER ===== */
 function loadUser(){
   userRef.once("value").then(snap=>{
     if(snap.exists()){
       USER.balance = snap.val().balance || 0;
       USER.totalInvites = snap.val().totalInvites || 0;
-    }else{
-      USER.balance = 0;
-      USER.totalInvites = 0;
     }
     renderUI();
   });
 }
 
-/* ===== UI ===== */
+/* ===== RENDER UI ===== */
 function renderUI(){
   rules.innerHTML = `
     💰 Rate: 1 Coin = ৳${CONFIG.coinRate}<br>
-    🔻 Min: ${CONFIG.minWithdrawCoins}<br>
-    🔺 Max: ${CONFIG.maxWithdrawCoins}<br>
+    🔻 Minimum: ${CONFIG.minWithdrawCoins} coins<br>
+    🔺 Maximum: ${CONFIG.maxWithdrawCoins} coins<br>
     👥 Required Invites: ${CONFIG.minInvites}<br>
     💼 Your Balance: <b>${USER.balance}</b>
   `;
 
-  method.innerHTML = `<option value="">Select Method</option>`;
-  if(CONFIG.bkashEnabled) method.innerHTML += `<option>Bkash</option>`;
-  if(CONFIG.nagadEnabled) method.innerHTML += `<option>Nagad</option>`;
+  method.innerHTML = `<option value="">Select Payment Method</option>`;
+  if(CONFIG.bkashEnabled) method.innerHTML += `<option value="Bkash">Bkash</option>`;
+  if(CONFIG.nagadEnabled) method.innerHTML += `<option value="Nagad">Nagad</option>`;
 }
 
+/* ===== ERROR ===== */
 function showError(msg){
   document.body.innerHTML =
-   `<h2 style="text-align:center;margin-top:60px;color:#ff6b6b">❌ ${msg}</h2>`;
+    `<h2 style="text-align:center;margin-top:70px;color:#ff6b6b">❌ ${msg}</h2>`;
 }
 
-window.calc = ()=>{
+/* ===== CALC ===== */
+coins.oninput = ()=>{
   const c = Number(coins.value);
-  taka.innerHTML = c ? `💵 You will get ৳${c * CONFIG.coinRate}` : "💡 Enter coins";
+  taka.innerHTML = c
+    ? `💵 You will receive ৳${c * CONFIG.coinRate}`
+    : "💡 Enter coins";
 };
 
 /* ===== SUBMIT ===== */
-window.submitWithdraw = ()=>{
+submitBtn.onclick = ()=>{
   const c = Number(coins.value);
   const m = method.value;
   const a = account.value.trim();
 
-  if(!c || !m || !a) return tg.showAlert("All fields required");
+  if(!c || !m || !a)
+    return tg.showAlert("Please fill all fields");
+
   if(c < CONFIG.minWithdrawCoins || c > CONFIG.maxWithdrawCoins)
-    return tg.showAlert("Amount out of limit");
+    return tg.showAlert("Withdraw amount out of limit");
+
   if(USER.totalInvites < CONFIG.minInvites)
     return tg.showAlert("Invite requirement not met");
+
   if(USER.balance < c)
     return tg.showAlert("Insufficient balance");
+
+  submitBtn.disabled = true;
 
   withdrawRef.push({
     userId: uid,
@@ -163,7 +225,7 @@ window.submitWithdraw = ()=>{
     balance: USER.balance - c
   });
 
-  tg.showAlert("Withdraw request sent");
+  tg.showAlert("✅ Withdraw request submitted");
   setTimeout(()=>tg.close(),1500);
 };
 </script>

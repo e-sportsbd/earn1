@@ -132,7 +132,6 @@ if(user.photo_url) photo.src = user.photo_url;
 /* ================= LOAD ADMIN ================= */
 adminRef.once("value").then(snap=>{
   if(!snap.exists()) return;
-
   ADMIN = snap.val();
 
   if(!ADMIN.system){
@@ -164,54 +163,55 @@ function loadUser(){
 }
 
 /* ================= UPDATE UI ================= */
-function updateUI(balanceVal,dailyVal,hourlyVal){
-  balance.innerText = balanceVal;
-  daily.innerText  = dailyVal + "/" + ADMIN.dailyLimit;
-  hourly.innerText = hourlyVal + "/" + ADMIN.hourlyLimit;
-
-  dailyBar.style.width  = (dailyVal / ADMIN.dailyLimit) * 100 + "%";
-  hourlyBar.style.width = (hourlyVal / ADMIN.hourlyLimit) * 100 + "%";
+function updateUI(b,d,h){
+  balance.innerText = b;
+  daily.innerText  = d + "/" + ADMIN.dailyLimit;
+  hourly.innerText = h + "/" + ADMIN.hourlyLimit;
+  dailyBar.style.width  = (d/ADMIN.dailyLimit)*100+"%";
+  hourlyBar.style.width = (h/ADMIN.hourlyLimit)*100+"%";
 }
 
 /* ================= WATCH AD ================= */
 watchBtn.onclick = () => {
-  userRef.once("value").then(snap => {
+  userRef.once("value").then(snap=>{
+    const d = snap.val();
+    const h = new Date().getHours();
 
-    if(!snap.exists()){
-      tg.showAlert("User data missing");
-      return;
-    }
-
-    let d = snap.val();
-    let currentHour = new Date().getHours();
-
-    // Reset hourly if hour changed
-    if(d.lastHour !== currentHour){
+    if(d.lastHour !== h){
+      userRef.update({hourlyDone:0,lastHour:h});
       d.hourlyDone = 0;
-      d.lastHour = currentHour;
-
-      userRef.update({
-        hourlyDone: 0,
-        lastHour: currentHour
-      });
     }
 
-    // ❌ Daily limit
-    if(d.dailyDone >= ADMIN.dailyLimit){
-      tg.showAlert("❌ Daily limit finished");
-      return;
-    }
+    if(d.dailyDone >= ADMIN.dailyLimit)
+      return tg.showAlert("❌ Daily limit finished");
 
-    // ❌ Hourly limit
-    if(d.hourlyDone >= ADMIN.hourlyLimit){
-      tg.showAlert("❌ Hourly limit finished");
-      return;
-    }
+    if(d.hourlyDone >= ADMIN.hourlyLimit)
+      return tg.showAlert("❌ Hourly limit finished");
 
-    // ✅ All OK
     location.href = "video.html";
   });
 };
+
+/* ================= AUTO REWARD ================= */
+const p = new URLSearchParams(location.search);
+if(p.get("ads")==="done"){
+  userRef.once("value").then(s=>{
+    const d=s.val();
+    const nb=(d.balance||0)+ADMIN.rewardPerAd;
+    const nd=(d.dailyDone||0)+1;
+    const nh=(d.hourlyDone||0)+1;
+
+    userRef.update({
+      balance:nb,
+      dailyDone:nd,
+      hourlyDone:nh
+    }).then(()=>{
+      updateUI(nb,nd,nh);
+      tg.showAlert("✅ Reward Added");
+      history.replaceState({},document.title,"index.html");
+    });
+  });
+}
 </script>
 
 </body>

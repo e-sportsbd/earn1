@@ -1,151 +1,61 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html>
 <head>
 <meta charset="UTF-8">
+<title>Watch Ad</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>বিজ্ঞাপন দেখুন</title>
 
-<!-- Telegram -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="https://adsgram.ai/js/adsgram.min.js"></script>
 
 <style>
-html,body{
-  margin:0;padding:0;height:100%;width:100%;
-  font-family:Arial;
-  background:#f5f5f5;
-  display:flex;flex-direction:column;
-}
-h3{
-  background:#feca2a;
-  text-align:center;
-  padding:6px;
+body{
   margin:0;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#0b0f1a;
+  color:#fff;
+  font-family:Arial;
 }
-#iframe-container{flex:1;position:relative}
-iframe{width:100%;height:100%;border:none}
-#controls{
-  position:absolute;
-  bottom:0;
-  width:100%;
-  background:#fff;
-  padding:10px;
+.box{
   text-align:center;
 }
-#timer{font-size:22px;color:#008000;margin-bottom:6px}
-button{
-  padding:10px 20px;
-  font-size:18px;
-  border:none;
-  border-radius:8px;
-  background:#0088cc;
-  color:#fff;
+.loader{
+  margin-top:15px;
+  opacity:.7;
 }
-button:disabled{background:gray}
 </style>
 </head>
 
 <body>
 
-<div id="iframe-container">
-  <h3>সব Ads দেখুন এবং 200 Token পান</h3>
-
-  <iframe id="adFrame"></iframe>
-
-  <div id="controls">
-    <div id="timer">15</div>
-    <button id="doneBtn" disabled>✅ Done</button>
-  </div>
+<div class="box">
+  <h2>📺 Watching Ad</h2>
+  <div class="loader">Please wait...</div>
 </div>
 
 <script>
-/* ===== Telegram ===== */
-const tg = window.Telegram?.WebApp;
-if(tg) tg.ready();
-const userId = tg?.initDataUnsafe?.user?.id || "guest";
+const tg = Telegram.WebApp;
+tg.ready(); tg.expand();
 
-/* ===== Firebase ===== */
-firebase.initializeApp({
-  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
-  databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
-  projectId: "post-c7e41",
-  appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
-});
-const db = firebase.database();
+// 🔴 YOUR ADSGRAM BLOCK ID
+const BLOCK_ID = 20338; // ← এখানে তোমার Adsgram Block ID বসাও
 
-/* ===== ADS LIST (Adsgram) ===== */
-const ads = [
-  "https://t.me/adsgram_ai?start=AD1",
-  "https://t.me/adsgram_ai?start=AD2",
-  "https://t.me/adsgram_ai?start=AD3"
-];
+Adsgram.show({
+  blockId: BLOCK_ID,
 
-/* ===== CONFIG ===== */
-const secondsPerAd = 15;
-const totalReward = 200;
+  onReward: () => {
+    // ✅ Ad completed
+    location.href = "index.html?ads=done";
+  },
 
-let currentAd = 0;
-let timeLeft = secondsPerAd;
-let interval;
-
-const adFrame = document.getElementById("adFrame");
-const timerEl = document.getElementById("timer");
-const doneBtn = document.getElementById("doneBtn");
-
-/* ===== START ADS ===== */
-function loadAd(){
-  if(currentAd >= ads.length){
-    timerEl.innerText = "✅ সব Ads শেষ";
-    doneBtn.disabled = false;
-    return;
+  onClose: () => {
+    // ❌ Ad skipped
+    tg.showAlert("❌ Ad not completed");
+    location.href = "index.html";
   }
-
-  adFrame.src = ads[currentAd];
-  timeLeft = secondsPerAd;
-  timerEl.innerText = timeLeft;
-
-  interval = setInterval(()=>{
-    timeLeft--;
-    timerEl.innerText = timeLeft;
-    if(timeLeft <= 0){
-      clearInterval(interval);
-      currentAd++;
-      loadAd();
-    }
-  },1000);
-}
-
-loadAd();
-
-/* ===== DONE BUTTON ===== */
-doneBtn.onclick = async ()=>{
-  const userRef = db.ref("users/"+userId+"/balance");
-
-  try{
-    const snap = await userRef.get();
-    const balance = snap.exists() ? snap.val() : 0;
-    const newBal = balance + totalReward;
-
-    await userRef.set(newBal);
-
-    alert("🎉 200 Token যোগ হয়েছে!\nNew Balance: "+newBal);
-
-    if(tg){
-      tg.sendData("ads_verified");
-      tg.close();
-    }
-  }catch(e){
-    alert("❌ Token add failed");
-  }
-};
-
-/* ===== ANTI CHEAT ===== */
-window.addEventListener("beforeunload", e=>{
-  e.preventDefault();
-  e.returnValue = "Ads শেষ না করলে token পাবেন না!";
 });
 </script>
 

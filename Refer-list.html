@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>My Referrals</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+body{background:#0b0f1a;color:#fff;font-family:Arial;margin:0}
+.app{max-width:480px;margin:auto;padding:16px}
+.card{
+  background:#12172a;
+  border:1px solid #2b335a;
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:12px
+}
+.user{
+  display:flex;
+  justify-content:space-between;
+  padding:10px;
+  border-bottom:1px solid #2b335a
+}
+.user:last-child{border-bottom:none}
+.name{font-weight:bold}
+.time{font-size:12px;opacity:.7}
+.empty{text-align:center;opacity:.6;margin-top:30px}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+  <h2>👥 My Referrals</h2>
+  <div id="list"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import {
+  getDatabase, ref, get
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+/* TELEGRAM */
+const tg = Telegram.WebApp;
+tg.ready(); tg.expand();
+const user = tg.initDataUnsafe.user;
+if(!user) tg.close();
+const uid = String(user.id);
+
+/* FIREBASE */
+const app = initializeApp({
+  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
+  databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
+  projectId: "post-c7e41"
+});
+const db = getDatabase(app);
+
+/* LOAD REFERRALS */
+async function loadReferrals(){
+  const refSnap = await get(ref(db, "users/"+uid+"/referrals"));
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  if(!refSnap.exists()){
+    list.innerHTML = "<p class='empty'>No referrals yet</p>";
+    return;
+  }
+
+  const data = refSnap.val();
+
+  Object.values(data).forEach(u=>{
+    const date = new Date(u.joinedAt).toLocaleString();
+    list.innerHTML += `
+      <div class="card user">
+        <div class="name">${u.name}</div>
+        <div class="time">${date}</div>
+      </div>
+    `;
+  });
+}
+
+loadReferrals();
+</script>
+
+</body>
+</html>
