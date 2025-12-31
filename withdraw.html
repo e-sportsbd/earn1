@@ -9,153 +9,20 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  addDoc,
-  collection,
-  updateDoc,
-  increment
-} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-
-/* ===== TELEGRAM ===== */
-const tg = Telegram.WebApp;
-tg.ready();
-tg.expand();
-
-const tgUser = tg.initDataUnsafe?.user;
-if(!tgUser){
-  document.body.innerHTML="<h2 style='text-align:center;margin-top:60px'>Telegram user not found</h2>";
-  throw "No User";
-}
-const uid = String(tgUser.id);
-
-/* ===== FIREBASE ===== */
-const firebaseConfig = {
-  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
-  projectId: "post-c7e41",
-  appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-/* ===== GLOBAL ===== */
-let CONFIG = {};
-let USER = {};
-
-/* ===== LOAD DATA ===== */
-async function loadWithdraw(){
-  /* ADMIN CONFIG */
-  const cfgSnap = await getDoc(doc(db,"admin_config","withdraw"));
-  if(!cfgSnap.exists()){
-    showError("Withdraw system not set");
-    return;
-  }
-  CONFIG = cfgSnap.data();
-
-  if(CONFIG.withdrawEnabled === false){
-    showError("Withdraw temporarily off");
-    return;
-  }
-
-  /* USER DATA */
-  const userSnap = await getDoc(doc(db,"users",uid));
-  if(!userSnap.exists()){
-    showError("User not found");
-    return;
-  }
-  USER = userSnap.data();
-  USER.balance = USER.balance || 0;
-  USER.totalInvites = USER.totalInvites || 0;
-
-  /* SHOW RULES */
-  rules.innerHTML = `
-  💰 Rate: 1 Coin = ৳${CONFIG.coinRate}<br>
-  🔻 Min: ${CONFIG.minWithdrawCoins} coins<br>
-  🔺 Max: ${CONFIG.maxWithdrawCoins} coins<br>
-  👥 Required Invites: ${CONFIG.minInvites}<br>
-  💼 Your Balance: <b>${USER.balance}</b> coins
-  `;
-
-  /* PAYMENT METHODS */
-  method.innerHTML = `<option value="">Select Method</option>`;
-  if(CONFIG.bkashEnabled) method.innerHTML += `<option>Bkash</option>`;
-  if(CONFIG.nagadEnabled) method.innerHTML += `<option>Nagad</option>`;
-}
-loadWithdraw();
-
-/* ===== HELPERS ===== */
-function showError(msg){
-  document.body.innerHTML = `
-  <h2 style="text-align:center;margin-top:70px;color:#ff6b6b">
-    ❌ ${msg}
-  </h2>`;
-}
-
-window.calc = ()=>{
-  const c = Number(coins.value);
-  if(!c){ taka.innerHTML="💡 Enter coins"; return; }
-  taka.innerHTML = `💵 You will get ৳${c * CONFIG.coinRate}`;
-};
-
-/* ===== WITHDRAW ===== */
-window.submitWithdraw = async ()=>{
-  const c = Number(coins.value);
-  const m = method.value;
-  const a = account.value.trim();
-
-  if(!c || !m || !a){
-    tg.showAlert("⚠️ All fields required");
-    return;
-  }
-  if(c < CONFIG.minWithdrawCoins || c > CONFIG.maxWithdrawCoins){
-    tg.showAlert("⚠️ Amount out of limit");
-    return;
-  }
-  if(USER.totalInvites < CONFIG.minInvites){
-    tg.showAlert("⚠️ Invite requirement not met");
-    return;
-  }
-  if(USER.balance < c){
-    tg.showAlert("⚠️ Insufficient balance");
-    return;
-  }
-
-  const takaAmount = c * CONFIG.coinRate;
-
-  await addDoc(collection(db,"withdraw_requests"),{
-    userId: uid,
-    coins: c,
-    taka: takaAmount,
-    method: m,
-    account: a,
-    status: "pending",
-    time: Date.now()
-  });
-
-  await updateDoc(doc(db,"users",uid),{
-    balance: increment(-c)
-  });
-
-  tg.showAlert(`✅ Request sent\n৳${takaAmount}`);
-  setTimeout(()=>tg.close(),1500);
-};
-</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
 body{background:#0b0f1a;color:#fff}
-.app{max-width:480px;margin:auto;padding:15px}
+.app{max-width:480px;margin:auto;padding:15px;padding-bottom:80px}
 .card{
   background:#12172a;
   border:1px solid #2b335a;
   border-radius:18px;
   padding:16px
 }
-h2{margin-bottom:10px}
+h2{text-align:center;margin-bottom:10px}
 .info{
   background:#181f3a;
   padding:10px;
@@ -170,12 +37,18 @@ input,select,button{
   border-radius:14px;
   border:none
 }
-input,select{background:#0f1428;color:#fff;border:1px solid #2b335a}
+input,select{
+  background:#0f1428;
+  color:#fff;
+  border:1px solid #2b335a
+}
 button{
   margin-top:14px;
   background:linear-gradient(135deg,#6a5cff,#2ec7ff);
-  color:#fff;font-size:16px
+  color:#fff;
+  font-size:16px
 }
+button:disabled{opacity:.4}
 .live{
   background:#0f1428;
   border:1px dashed #2ec7ff;
@@ -188,19 +61,178 @@ button{
 </head>
 
 <body>
+
 <div class="app">
   <div class="card">
     <h2>💳 Withdraw</h2>
+
     <div class="info" id="rules">Loading...</div>
 
     <input id="coins" type="number" placeholder="Enter coins" oninput="calc()">
     <div class="live" id="taka">💡 Enter coins</div>
 
-    <select id="method"></select>
+    <select id="method">
+      <option value="">Select Method</option>
+    </select>
+
     <input id="account" placeholder="Account Number">
 
-    <button onclick="submitWithdraw()">🚀 Submit Withdraw</button>
+    <button id="btn" onclick="submitWithdraw()">🚀 Submit Withdraw</button>
   </div>
 </div>
+
+<script>
+/* ========== TELEGRAM SAFE INIT ========== */
+const tg = Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const tgUser = tg.initDataUnsafe?.user || null;
+const uid = tgUser ? String(tgUser.id) : null;
+
+/* ========== FIREBASE ========== */
+firebase.initializeApp({
+  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
+  databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
+  projectId: "post-c7e41",
+  appId: "1:758133068153:web:28ef27e45d8037e0d49fa8"
+});
+
+const db = firebase.database();
+
+/* ========== REFS ========== */
+const adminRef = db.ref("adminControl/withdraw");
+const userRef = uid ? db.ref("users/" + uid) : null;
+const withdrawRef = db.ref("withdraw_requests");
+
+/* ========== STATE ========== */
+let CONFIG = {};
+let USER = null;
+
+/* ========== LOAD ADMIN CONFIG ========== */
+adminRef.once("value", snap=>{
+  if(!snap.exists()){
+    rules.innerHTML = "❌ Withdraw system not configured";
+    disableAll();
+    return;
+  }
+
+  CONFIG = snap.val();
+
+  if(CONFIG.withdrawEnabled === false){
+    rules.innerHTML = "⛔ Withdraw temporarily disabled";
+    disableAll();
+    return;
+  }
+
+  loadUser();
+});
+
+/* ========== LOAD USER (NEVER FAIL) ========== */
+function loadUser(){
+  if(!userRef){
+    USER = null;
+    renderUI();
+    disableAll("⚠️ Open from Telegram to withdraw");
+    return;
+  }
+
+  userRef.once("value", snap=>{
+    if(!snap.exists()){
+      USER = null;
+      renderUI();
+      disableAll("⚠️ Account not activated yet");
+      return;
+    }
+
+    USER = snap.val();
+    USER.balance = USER.balance || 0;
+    USER.totalInvites = USER.totalInvites || 0;
+    renderUI();
+  });
+}
+
+/* ========== UI ========== */
+function renderUI(){
+  rules.innerHTML = `
+    💰 Rate: 1 Coin = ৳${CONFIG.coinRate}<br>
+    🔻 Min: ${CONFIG.minWithdrawCoins} coins<br>
+    🔺 Max: ${CONFIG.maxWithdrawCoins} coins<br>
+    👥 Required Invites: ${CONFIG.minInvites}<br>
+    💼 Your Balance: <b>${USER ? USER.balance : 0}</b> coins
+  `;
+
+  method.innerHTML = `<option value="">Select Method</option>`;
+  if(CONFIG.bkashEnabled) method.innerHTML += `<option>Bkash</option>`;
+  if(CONFIG.nagadEnabled) method.innerHTML += `<option>Nagad</option>`;
+}
+
+/* ========== HELPERS ========== */
+function disableAll(msg){
+  coins.disabled = true;
+  method.disabled = true;
+  account.disabled = true;
+  btn.disabled = true;
+  if(msg) taka.innerHTML = msg;
+}
+
+function calc(){
+  if(!USER) return;
+  const c = Number(coins.value);
+  if(!c){
+    taka.innerHTML = "💡 Enter coins";
+    return;
+  }
+  taka.innerHTML = `💵 You will get ৳${c * CONFIG.coinRate}`;
+}
+
+/* ========== SUBMIT ========== */
+function submitWithdraw(){
+  if(!USER){
+    tg.showAlert("⚠️ Withdraw not available");
+    return;
+  }
+
+  const c = Number(coins.value);
+  const m = method.value;
+  const a = account.value.trim();
+
+  if(!c || !m || !a){
+    tg.showAlert("⚠️ All fields required");
+    return;
+  }
+
+  if(c < CONFIG.minWithdrawCoins || c > CONFIG.maxWithdrawCoins){
+    tg.showAlert("⚠️ Amount out of limit");
+    return;
+  }
+
+  if(USER.totalInvites < CONFIG.minInvites){
+    tg.showAlert("⚠️ Invite requirement not met");
+    return;
+  }
+
+  if(USER.balance < c){
+    tg.showAlert("⚠️ Insufficient balance");
+    return;
+  }
+
+  withdrawRef.push({
+    userId: uid,
+    coins: c,
+    taka: c * CONFIG.coinRate,
+    method: m,
+    account: a,
+    status: "pending",
+    time: Date.now()
+  });
+
+  userRef.update({ balance: USER.balance - c });
+
+  tg.showAlert("✅ Withdraw request sent");
+  setTimeout(()=>tg.close(),1500);
+}
+</script>
+
 </body>
 </html>
