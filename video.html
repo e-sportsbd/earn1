@@ -43,6 +43,16 @@ const tg = Telegram.WebApp;
 tg.ready(); tg.expand();
 const user = tg.initDataUnsafe.user;
 
+/* Adsgram userId */
+const urlParams = new URLSearchParams(window.location.search);
+const adsUserId = urlParams.get("uid");
+
+/* Security check */
+if(!adsUserId || !user){
+  alert("Invalid access");
+  location.href="index.html";
+}
+
 /* Firebase */
 firebase.initializeApp({
   apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
@@ -64,13 +74,13 @@ adminRef.once("value").then(snap=>{
 /* Show Adsgram Ad */
 function showAd(reward){
   const ad = new Adsgram({
-    blockId: "20342" // 🔴 Adsgram block id
+    blockId: "20969"
   });
 
   ad.show().then(result => {
 
     if(result.done){
-      // ✅ Reward user
+
       userRef.transaction(u=>{
         if(!u) return u;
         u.balance += reward;
@@ -82,7 +92,6 @@ function showAd(reward){
       tg.showAlert("✅ Reward added");
     }
 
-    // redirect back
     setTimeout(()=>{
       location.href = "index.html";
     },1000);
