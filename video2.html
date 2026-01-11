@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Watch Ad</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Telegram Web App -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+body {
+  margin:0;
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#0b0f1a;
+  color:#fff;
+  font-family:Arial, sans-serif;
+  text-align:center;
+}
+h2 { margin-bottom:15px; }
+p { opacity:0.7; }
+</style>
+</head>
+<body>
+
+<div>
+  <h2>📺 Loading Ad...</h2>
+  <p>Please wait until ad is finished</p>
+</div>
+
+<script>
+/* ================= TELEGRAM ================= */
+const tg = Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const user = tg.initDataUnsafe.user;
+if(!user){
+  alert("🚫 Invalid Telegram user");
+  tg.close();
+}
+
+/* ================= FIREBASE ================= */
+firebase.initializeApp({
+  apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
+  databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
+  projectId: "post-c7e41",
+  appId: "1:758133068153:web:28ef27e45d8037e45d8037e0d49fa8"
+});
+
+const db = firebase.database();
+const adminRef = db.ref("adminControl");
+const userRef  = db.ref("users/" + user.id);
+
+/* ================= LOAD ADMIN CONFIG ================= */
+let ADMIN = {};
+adminRef.once("value").then(snap=>{
+  ADMIN = snap.val() || {};
+  openSmartLink(ADMIN.rewardPerAd || 0);
+}).catch(err=>{
+  console.error(err);
+  tg.showAlert("❌ Failed to load admin config");
+  setTimeout(()=> location.href="index.html",1000);
+});
+
+/* ================= OPEN GIGAPUB SMART LINK ================= */
+function openSmartLink(reward){
+  const smartLink = "https://link.gigapub.tech/l/cp7yrl6pj";
+
+  // Open Smart Link in new tab (or WebApp view)
+  const newWindow = window.open(smartLink, "_blank");
+
+  if(!newWindow){
+    tg.showAlert("❌ Please allow popups to show ad");
+    setTimeout(()=> location.href="index.html",1000);
+    return;
+  }
+
+  // Polling to detect when user closes the ad tab
+  const checkInterval = setInterval(()=>{
+    if(newWindow.closed){
+      clearInterval(checkInterval);
+
+      // Reward the user after ad finished
+      userRef.transaction(d=>{
+        if(!d) return { balance:reward, dailyDone:1, hourlyDone:1, lastHour:new Date().getHours() };
+        d.balance = (d.balance||0) + reward;
+        d.dailyDone = (d.dailyDone||0) + 1;
+        d.hourlyDone = (d.hourlyDone||0) + 1;
+        d.lastHour = new Date().getHours();
+        return d;
+      }).then(()=>{
+        tg.showAlert("✅ Reward Added");
+        location.href="index.html?ads=done";
+      });
+    }
+  },1000);
+}
+</script>
+
+</body>
+</html>
