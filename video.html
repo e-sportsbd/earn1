@@ -2,58 +2,55 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Watching Ad</title>
+<title>Watch Ad</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Telegram -->
+<!-- Telegram Web App -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<!-- Adsgram SDK -->
-<script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+<!-- MONETAG SCRIPT -->
+<script src="https://cdn.monetag.com/show_10379306.js"></script>
 
 <style>
-body{
+body {
   margin:0;
   height:100vh;
   display:flex;
-  align-items:center;
   justify-content:center;
+  align-items:center;
   background:#0b0f1a;
   color:#fff;
-  font-family:Arial;
+  font-family:Arial, sans-serif;
+  text-align:center;
 }
-.box{text-align:center}
+h2 { margin-bottom:15px; }
+p { opacity:0.7; }
 </style>
 </head>
-
 <body>
 
-<div class="box">
-  <h2>📺 Watching Ad</h2>
-  <p>Please wait...</p>
+<div>
+  <h2>📺 Loading Ad...</h2>
+  <p>Please wait until ad is finished</p>
 </div>
 
 <script>
-/* Telegram */
+/* ================= TELEGRAM ================= */
 const tg = Telegram.WebApp;
-tg.ready(); tg.expand();
+tg.ready();
+tg.expand();
+
 const user = tg.initDataUnsafe.user;
-
-/* Adsgram userId */
-const urlParams = new URLSearchParams(window.location.search);
-const adsUserId = urlParams.get("uid");
-
-/* Security check */
-if(!adsUserId || !user){
-  alert("Invalid access");
-  location.href="index.html";
+if(!user){
+  alert("🚫 Invalid Telegram user");
+  tg.close();
 }
 
-/* Firebase */
+/* ================= FIREBASE ================= */
 firebase.initializeApp({
   apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
   databaseURL: "https://post-c7e41-default-rtdb.firebaseio.com",
@@ -62,43 +59,51 @@ firebase.initializeApp({
 });
 
 const db = firebase.database();
-const userRef = db.ref("users/" + user.id);
 const adminRef = db.ref("adminControl");
+const userRef  = db.ref("users/" + user.id);
 
-/* Load admin reward */
+/* ================= LOAD ADMIN CONFIG ================= */
+let ADMIN = {};
 adminRef.once("value").then(snap=>{
-  const ADMIN = snap.val();
-  showAd(ADMIN.rewardPerAd);
+  ADMIN = snap.val() || {};
+  showAd(ADMIN.rewardPerAd || 0);
+}).catch(err=>{
+  console.error(err);
+  tg.showAlert("❌ Failed to load admin config");
+  setTimeout(()=> location.href="index.html",1000);
 });
 
-/* Show Adsgram Ad */
+/* ================= SHOW MONETAG AD ================= */
 function showAd(reward){
-  const ad = new Adsgram({
-    blockId: "20969"
-  });
 
-  ad.show().then(result => {
+  show_10379306('pop')
+  .then(() => {
 
-    if(result.done){
+    // Reward user
+    userRef.transaction(d=>{
+      if(!d) return {
+        balance: reward,
+        dailyDone:1,
+        hourlyDone:1,
+        lastHour:new Date().getHours()
+      };
 
-      userRef.transaction(u=>{
-        if(!u) return u;
-        u.balance += reward;
-        u.dailyDone += 1;
-        u.hourlyDone += 1;
-        return u;
-      });
+      d.balance = (d.balance||0) + reward;
+      d.dailyDone = (d.dailyDone||0) + 1;
+      d.hourlyDone = (d.hourlyDone||0) + 1;
+      d.lastHour = new Date().getHours();
+      return d;
+    })
+    .then(()=>{
+      tg.showAlert("✅ Reward Added");
+      setTimeout(()=> location.href="index.html?ads=done", 1000);
+    });
 
-      tg.showAlert("✅ Reward added");
-    }
-
-    setTimeout(()=>{
-      location.href = "index.html";
-    },1000);
-
-  }).catch(()=>{
+  })
+  .catch(e => {
+    console.log(e);
     tg.showAlert("❌ Ad failed");
-    location.href = "index.html";
+    setTimeout(()=> location.href="index.html", 1000);
   });
 }
 </script>

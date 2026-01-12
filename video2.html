@@ -47,6 +47,16 @@ if(!user){
   tg.close();
 }
 
+/* ================= BLOCK BACK ================= */
+history.pushState(null, null, location.href);
+window.onpopstate = function () { history.go(1); };
+
+/* ================= BLOCK CLOSE ================= */
+let adFinished = false;
+window.onbeforeunload = function () {
+  if(!adFinished) return "Please finish ad!";
+};
+
 /* ================= FIREBASE ================= */
 firebase.initializeApp({
   apiKey: "AIzaSyBl0PIm4lvZea96Bte3KaKQJvurGE1P8Es",
@@ -57,27 +67,27 @@ firebase.initializeApp({
 
 const db = firebase.database();
 const adminRef = db.ref("adminControl");
-const userRef  = db.ref("users/" + user.id);
+const userRef = db.ref("users/" + user.id);
 
 /* ================= LOAD ADMIN CONFIG ================= */
 let ADMIN = {};
 adminRef.once("value").then(snap=>{
   ADMIN = snap.val() || {};
-  openSmartLink(ADMIN.rewardPerAd || 0);
+  showSmartLinkAd(ADMIN.rewardPerAd || 0);
 }).catch(err=>{
   console.error(err);
   tg.showAlert("❌ Failed to load admin config");
   setTimeout(()=> location.href="index.html",1000);
 });
 
-/* ================= OPEN GIGAPUB SMART LINK ================= */
-function openSmartLink(reward){
+/* ================= SHOW SMART LINK AD ================= */
+function showSmartLinkAd(reward){
   const smartLink = "https://link.gigapub.tech/l/cp7yrl6pj";
 
-  // Open Smart Link in new tab (or WebApp view)
-  const newWindow = window.open(smartLink, "_blank");
+  // Open Smart Link in new tab / WebApp view
+  const adWindow = window.open(smartLink, "_blank");
 
-  if(!newWindow){
+  if(!adWindow){
     tg.showAlert("❌ Please allow popups to show ad");
     setTimeout(()=> location.href="index.html",1000);
     return;
@@ -85,15 +95,21 @@ function openSmartLink(reward){
 
   // Polling to detect when user closes the ad tab
   const checkInterval = setInterval(()=>{
-    if(newWindow.closed){
+    if(adWindow.closed){
       clearInterval(checkInterval);
+      adFinished = true;
 
-      // Reward the user after ad finished
+      // Reward the user
       userRef.transaction(d=>{
-        if(!d) return { balance:reward, dailyDone:1, hourlyDone:1, lastHour:new Date().getHours() };
-        d.balance = (d.balance||0) + reward;
-        d.dailyDone = (d.dailyDone||0) + 1;
-        d.hourlyDone = (d.hourlyDone||0) + 1;
+        if(!d) return {
+          balance: reward,
+          dailyDone: 1,
+          hourlyDone: 1,
+          lastHour: new Date().getHours()
+        };
+        d.balance = (d.balance || 0) + reward;
+        d.dailyDone = (d.dailyDone || 0) + 1;
+        d.hourlyDone = (d.hourlyDone || 0) + 1;
         d.lastHour = new Date().getHours();
         return d;
       }).then(()=>{
